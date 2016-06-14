@@ -63,15 +63,15 @@ class KNearestNeighbor(object):
     num_test = X.shape[0]
     num_train = self.X_train.shape[0]
     dists = np.zeros((num_test, num_train))
-    for i in xrange(num_test):
-      for j in xrange(num_train):
+    for i in range(num_test):
+      for j in range(num_train):
         #####################################################################
         # TODO:                                                             #
         # Compute the l2 distance between the ith test point and the jth    #
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        pass
+        dists[i, j] = np.sqrt(np.sum((X[i] - self.X_train[j]) ** 2))
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -87,13 +87,13 @@ class KNearestNeighbor(object):
     num_test = X.shape[0]
     num_train = self.X_train.shape[0]
     dists = np.zeros((num_test, num_train))
-    for i in xrange(num_test):
+    for i in range(num_test):
       #######################################################################
       # TODO:                                                               #
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      pass
+      dists[i] = np.sqrt(np.sum((X[i] - self.X_train) ** 2, axis=1))
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -121,7 +121,12 @@ class KNearestNeighbor(object):
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
-    pass
+    a2 = np.sum(X ** 2, axis=1) # shape: (500,)
+    b2 = np.sum(self.X_train ** 2, axis=1) # shape: (5000,)
+    aa2 = a2.reshape(a2.shape[0], 1) # reshape a2 to (500,1) to be able to broadcast a2 and sum to b2
+    quadra = aa2 + b2 # shape = (500, 5000)
+    prod = np.dot(X, self.X_train.T) # shape = (500, 5000)
+    dists = np.sqrt(quadra -2 * prod) # shape = (500, 5000)
     #########################################################################
     #                         END OF YOUR CODE                              #
     #########################################################################
@@ -142,7 +147,7 @@ class KNearestNeighbor(object):
     """
     num_test = dists.shape[0]
     y_pred = np.zeros(num_test)
-    for i in xrange(num_test):
+    for i in range(num_test):
       # A list of length k storing the labels of the k nearest neighbors to
       # the ith test point.
       closest_y = []
@@ -153,7 +158,9 @@ class KNearestNeighbor(object):
       # neighbors. Store these labels in closest_y.                           #
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
-      pass
+      ind = np.argsort(dists[i, :], axis=0)
+      closest_y = self.y_train[ind[:k]]
+
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
@@ -161,10 +168,52 @@ class KNearestNeighbor(object):
       # Store this label in y_pred[i]. Break ties by choosing the smaller     #
       # label.                                                                #
       #########################################################################
-      pass
+      types = np.unique(closest_y)
+      # print 'types', types
+      closest_y_list = closest_y.tolist()
+      occ = [closest_y_list.count(lab) for lab in types]
+      # print 'occ:', occ
+      y_pred[i] = types[np.argmax(occ)]
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
 
     return y_pred
 
+if __name__ == '__main__':
+    x = np.array([[4,5,6], [1,2,3], [7,8,9], [10, 11, 12]])
+    y = np.array([[1,1,1], [7,8,9]])
+    lab = np.array([3, 3, 1 ,1])
+    cl = KNearestNeighbor()
+    cl.train(x, lab)
+
+    print (cl.compute_distances_two_loops(y))
+    print (x.shape)
+    sx2 = np.sum(x ** 2, axis=1)
+    sy2 = np.sum(y ** 2, axis=1)
+    #print (sx2, sy2)
+
+    sy22 = sy2.reshape(sy2.shape[0], 1)
+    #print (sy22)
+    tmp = sy22 + sx2
+    #print (tmp)
+
+    prod = np.dot(y, x.T)
+    #print (prod)
+
+    dists = tmp -2 * prod
+    #print (np.sqrt(dists))
+
+    pred = cl.predict_labels(dists, 3)
+    #print (pred)
+
+# with the CIFAR dataset
+# Two loop version took 80.492011 seconds
+# One loop version took 112.854208 seconds
+# No loop version took 13.636812 seconds
+
+# accuracy with k=10:
+# Got 141 / 500 correct => accuracy: 0.282000
+
+# Final accuracy, after 5-fold cross-validation to choose best_k=50:
+# Got 293 / 500 correct => accuracy: 0.586000
